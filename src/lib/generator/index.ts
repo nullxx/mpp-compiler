@@ -88,7 +88,7 @@ class _Generator {
 
 export function* generate(stream: Generator<AST>, environment = new Environment()) {
   const g = new _Generator(stream, environment);
-  if (_Generator.depth === 1) g.preGenerate();
+  g.preGenerate();
 
   while (g.hasNext()) {
     const generated = g.generate();
