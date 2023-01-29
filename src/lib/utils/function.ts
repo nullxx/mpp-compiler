@@ -1,3 +1,5 @@
+import { randomString } from "./string";
+
 export function* createGenerator<T>(obj: T) {
   yield obj;
 }
@@ -23,4 +25,17 @@ export function generatorToArray<T>(result: Generator<T[] | T>) {
   while ((_result = result.next()) && !_result.done) results.push(_result.value);
 
   return results;
+}
+
+
+export class Identificable {
+  static ID_LENGTH = 4;
+  public id: string;
+  constructor() {
+    this.id = randomString(Identificable.ID_LENGTH);
+  }
+
+  public toString() {
+    return this.id;
+  }
 }

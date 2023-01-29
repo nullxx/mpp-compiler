@@ -31,6 +31,7 @@ class Parser {
     const token = iterator.value;
 
     switch (token.type) {
+      case TokenType.MULTIPLY:
       case TokenType.PLUS:
       case TokenType.MINUS: {
         const nextOp = this.parseExpression(token);
@@ -46,7 +47,8 @@ class Parser {
 
       case TokenType.NUMBER: {
         const nextOp = this.parseExpression(token);
-        if (nextOp && (nextOp[0] === TokenType.PLUS || nextOp[0] === TokenType.MINUS || nextOp[0] === TokenType.EQUALITY || nextOp[0] === TokenType.INEQUALITY)) {
+        const possibleNumberOperators: TokenType[] = [TokenType.MULTIPLY, TokenType.PLUS, TokenType.MINUS, TokenType.EQUALITY, TokenType.INEQUALITY];
+        if (nextOp && (possibleNumberOperators.includes(nextOp?.[0] as TokenType))) {
           return [token.type, token.literal, nextOp];
         } else if (nextOp) {
           this.undoParseExpression(nextOp);
@@ -60,7 +62,9 @@ class Parser {
 
       case TokenType.SYMBOL: {
         const nextOp = this.parseExpression(token);
-        if (nextOp) {
+        if (nextOp?.[0] === TokenType.RPAREN) {
+          this.undoParseExpression(nextOp);
+        } else if (nextOp) {
           return [token.type, token.literal, nextOp];
         }
         return [token.type, token.literal];

@@ -72,6 +72,8 @@ class Lexer {
         return new Token(TokenType.PLUS, '+', this.getPosition());
       case TokenType.MINUS:
         return new Token(TokenType.MINUS, '-', this.getPosition());
+      case TokenType.MULTIPLY:
+        return new Token(TokenType.MULTIPLY, '*', this.getPosition());
       case TokenType.LBRACE:
         return new Token(TokenType.LBRACE, '{', this.getPosition());
       case TokenType.RBRACE:

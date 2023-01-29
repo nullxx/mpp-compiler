@@ -9,6 +9,7 @@ export enum TokenType {
   INEQUALITY = '!=',
   PLUS = '+',
   MINUS = '-',
+  MULTIPLY = '*',
   COMMA = ',',
   LINE_TERMINATOR = ';',
   LPAREN = '(',
@@ -25,7 +26,7 @@ export class Position {
   constructor(public row: number, public col: number) {}
 
   toString() {
-    return `${this.row}:${this.col}`;
+    return `${this.row+1}:${this.col+1}`;
   }
 }
 
@@ -33,7 +34,7 @@ export class Token {
   constructor(public type: TokenType, public literal: string, public position: Position) {}
 
   toString() {
-    return `'${this.type}' (${this.position})`;
+    return `'${this.literal}' (${this.type}) (${this.position})`;
   }
 }
 

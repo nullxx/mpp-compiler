@@ -1,16 +1,16 @@
 import { AST, TokenType } from '../types';
-import { Instruction, PendingDirFromVariable } from '../instruction';
+import { Instruction, Label, PendingDirFromLabel, PendingDirFromVariable } from '../instruction';
 import { parseNumber } from '../number';
 import { GenerateError } from '../error';
 import { EnvironmentOption } from './_environment';
 
 interface Operation {
-  operator: 'ADD' | 'SUB';
+  operator: 'ADD' | 'SUB' | 'MULT';
   value?: number;
   variableName?: string;
 }
 
-function parseParseArithmetic(ast: AST, operator: 'ADD' | 'SUB'): Operation[] {
+function parseParseArithmetic(ast: AST, operator: 'ADD' | 'SUB' | 'MULT'): Operation[] {
   const operations = [];
 
   const [type, value, next] = ast;
@@ -38,6 +38,10 @@ function parseParseArithmetic(ast: AST, operator: 'ADD' | 'SUB'): Operation[] {
     if (typeof value === 'string') throw new GenerateError('Expected AST array. Found string');
 
     operations.push(...parseParseArithmetic(value, 'SUB'));
+  } else if (type === TokenType.MULTIPLY && value) {
+    if (typeof value === 'string') throw new GenerateError('Expected AST array. Found string');
+
+    operations.push(...parseParseArithmetic(value, 'MULT'));
   }
 
   if (next) {
@@ -74,8 +78,8 @@ export function _generateArithmetic(operations: Operation[], { environment }: En
       throw new GenerateError(`Operation ${operation} has no value or variableName`);
     }
 
-    if (operation.value !== undefined) instructions.push(new Instruction(operation.operator, { value: operation.value }));
-    if (operation.variableName !== undefined) {
+    if (operation.value !== undefined && (operation.operator === 'ADD' || operation.operator === 'SUB')) instructions.push(new Instruction(operation.operator, { value: operation.value }));
+    if (operation.variableName !== undefined && (operation.operator === 'ADD' || operation.operator === 'SUB')) {
       const fromVariable = environment.getVariable(operation.variableName);
       if (!fromVariable) throw new GenerateError(`Referenced variable '${operation.variableName}' not defined`);
 
@@ -87,6 +91,60 @@ export function _generateArithmetic(operations: Operation[], { environment }: En
         new Instruction('MOV', { source: 'AC', destination: 'RB' }),
         new Instruction('MOV', { source: 'RC', destination: 'AC' }),
         new Instruction(operation.operator, { source: 'RB' }),
+      );
+    }
+
+    // could be optimized a lot. Could check what of the values is bigger and then do the loop with the smaller value (and add the bigger)
+    if (operation.value !== undefined && operation.operator === 'MULT') {
+      const multStartLabel = new Label('MULT_START', 'internal');
+      const multEndLabel = new Label('MULT_END', 'internal');
+      instructions.push(
+        new Instruction('MOV', { source: 'AC', destination: 'RC' }),
+        new Instruction('MOV', { value: 0, destination: 'RD' }),
+        new Instruction('MOV', { source: 'RC', destination: 'AC', labeled: multStartLabel }),
+        new Instruction('CMP', { value: 0 }),
+        new Instruction('BEQ', { dir: new PendingDirFromLabel(multEndLabel) }),
+        // new Instruction('POP'),
+        new Instruction('MOV', { source: 'RD', destination: 'AC' }),
+        new Instruction('ADD', { value: operation.value }),
+        // new Instruction('PUSH'),
+        new Instruction('MOV', { source: 'AC', destination: 'RD' }),
+        new Instruction('MOV', { source: 'RC', destination: 'AC' }),
+        new Instruction('SUB', { value: 1 }),
+        new Instruction('MOV', { source: 'AC', destination: 'RC' }),
+        new Instruction('JMP', { dir: new PendingDirFromLabel(multStartLabel) }),
+        // new Instruction('POP', { labeled: multEndLabel }),
+        new Instruction('MOV', { source: 'RD', destination: 'AC', labeled: multEndLabel }),
+      );
+    }
+
+    if (operation.variableName !== undefined && operation.operator === 'MULT') {
+      const fromVariable = environment.getVariable(operation.variableName);
+      if (!fromVariable) throw new GenerateError(`Referenced variable '${operation.variableName}' not defined`);
+
+  
+      const multStartLabel = new Label('MULT_START', 'internal');
+      const multEndLabel = new Label('MULT_END', 'internal');
+      instructions.push(
+        new Instruction('MOV', { source: 'AC', destination: 'RC' }),
+        new Instruction('MOV', { value: 0, destination: 'RD' }),
+        new Instruction('MOV', { source: 'RC', destination: 'AC', labeled: multStartLabel }),
+        new Instruction('CMP', { value: 0 }),
+        new Instruction('BEQ', { dir: new PendingDirFromLabel(multEndLabel) }),
+        // new Instruction('POP'),
+        new Instruction('MOV', { source: 'RD', destination: 'RB' }),
+        new Instruction('LDA', {
+          dir: new PendingDirFromVariable(fromVariable),
+        }),
+        new Instruction('ADD', { source: 'RB' }),
+        // new Instruction('PUSH'),
+        new Instruction('MOV', { source: 'AC', destination: 'RD' }),
+        new Instruction('MOV', { source: 'RC', destination: 'AC' }),
+        new Instruction('SUB', { value: 1 }),
+        new Instruction('MOV', { source: 'AC', destination: 'RC' }),
+        new Instruction('JMP', { dir: new PendingDirFromLabel(multStartLabel) }),
+        // new Instruction('POP', { labeled: multEndLabel }),
+        new Instruction('MOV', { source: 'RD', destination: 'AC', labeled: multEndLabel }),
       );
     }
   }
