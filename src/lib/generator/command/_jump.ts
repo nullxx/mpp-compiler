@@ -1,7 +1,7 @@
 import { AST, TokenType } from '../../types';
 import { GenerateError } from '../../error';
 import { EnvironmentOption } from '../_environment';
-import { Instruction, PendingDirFromLabel } from '../../instruction';
+import { Instruction, JMP } from '../../instruction';
 import { JMP_COMMAND_SYMBOL } from './_comands';
 
 interface _ReferencesLabel {
@@ -28,9 +28,7 @@ function _generateJump(referencesLabel: _ReferencesLabel, { environment }: Envir
   if (!lbl) throw new GenerateError(`Referenced label '${referencesLabel.labelName}' does not exist`);
 
   return [
-    new Instruction('JMP', {
-      dir: new PendingDirFromLabel(lbl),
-    }),
+    new JMP(lbl),
   ];
 }
 

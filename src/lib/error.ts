@@ -1,29 +1,29 @@
 export class ParseError extends Error {
   constructor(message: string) {
-    super(message);
+    super(`Parse Error: ${message}`);
   }
 }
 
 export class LexError extends Error {
   constructor(message: string) {
-    super(message);
+    super(`Lex Error: ${message}`);
   }
 }
 
 export class GenerateError extends Error {
   constructor(message: string) {
-    super(message);
+    super(`Generate Error: ${message}`);
   }
 }
 
 export class AllocationError extends Error {
   constructor(message: string) {
-    super(message);
+    super(`Allocation Error: ${message}`);
   }
 }
 
 export class InstructionFormatError extends Error {
   constructor(message: string) {
-    super(message);
+    super(`Instruction Format Error: ${message}`);
   }
 }

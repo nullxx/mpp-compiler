@@ -1,4 +1,4 @@
-import { CARRIAGE_RETURN, WHITE_SPACE, BREAK_LINE, SEMI_COLON, COLON, RPAREN } from '../constants';
+import { WHITE_SPACE, SEMI_COLON, COLON, RPAREN, ANYTHING_BUT_EQUALITY, ASSIGN } from '../constants';
 import { LexError } from './error';
 import { peekableStream, PeekableStreamResponse } from './peekable-stream';
 import { char, Position, Token, TokenType } from './types';
@@ -13,14 +13,21 @@ class Lexer {
     this.stream = peekableStream<string>(input);
   }
 
-  scan(until: char | char[]): char[] {
+  scan(...until: RegExp[]): char[] {
     if (!Array.isArray(until)) until = [until];
 
     let char: char;
     const chars = [];
 
     while ((char = this.peekNextChar())) {
-      if (until.includes(char)) break;
+      if (
+        until.some((u) => {
+          if (u.test(char)) return true;
+          return false;
+        })
+      )
+        break;
+
       chars.push(char);
     }
 
@@ -38,14 +45,13 @@ class Lexer {
   lexNext(): Token | null {
     let char: char;
     switch ((char = this.nextChar())) {
-      case BREAK_LINE:
+      case '\n':
+      case ' ':
+      case '\r':
         this.row++;
-      // eslint-disable-next-line no-fallthrough
-      case WHITE_SPACE:
-      case CARRIAGE_RETURN:
         return null;
       case TokenType.ASSIGN: {
-        const nextChars = this.scan([WHITE_SPACE]);
+        const nextChars = this.scan(ANYTHING_BUT_EQUALITY);
         if (nextChars.length === 1 && nextChars[0] === TokenType.ASSIGN) {
           const chars = [char, ...nextChars];
           return new Token(TokenType.EQUALITY, chars.join(''), this.getPosition());
@@ -54,7 +60,7 @@ class Lexer {
       }
 
       case TokenType.EXCLAMATION: {
-        const nextChars = this.scan([WHITE_SPACE]);
+        const nextChars = this.scan(WHITE_SPACE);
         if (nextChars.length === 0 || nextChars[0] !== TokenType.ASSIGN) throw new LexError(`Expected '${TokenType.ASSIGN}' after '${char}'`);
         const chars = [char, ...nextChars];
         return new Token(TokenType.INEQUALITY, chars.join(''), this.getPosition());
@@ -81,8 +87,8 @@ class Lexer {
       case TokenType.EOF:
         return new Token(TokenType.EOF, '', this.getPosition());
 
-      case COLON:
-        return new Token(TokenType.SEPARATOR, COLON, this.getPosition());
+      case TokenType.SEPARATOR:
+        return new Token(TokenType.SEPARATOR, ':', this.getPosition());
 
       case 'a':
       case 'b':
@@ -111,7 +117,7 @@ class Lexer {
       case 'x':
       case 'y':
       case 'z': {
-        const chars = [char, ...this.scan([COLON, WHITE_SPACE, SEMI_COLON, RPAREN])];
+        const chars = [char, ...this.scan(COLON, WHITE_SPACE, SEMI_COLON, RPAREN, ASSIGN)];
         return new Token(TokenType.SYMBOL, chars.join(''), this.getPosition());
       }
 
@@ -125,7 +131,7 @@ class Lexer {
       case '7':
       case '8':
       case '9': {
-        const chars = [char, ...this.scan([WHITE_SPACE, SEMI_COLON, RPAREN])];
+        const chars = [char, ...this.scan(WHITE_SPACE, SEMI_COLON, RPAREN)];
         const number = chars.join('');
         if (parseNumber(number) === null) throw new LexError(`Number '${number}' is not a valid number`);
         return new Token(TokenType.NUMBER, number, this.getPosition());

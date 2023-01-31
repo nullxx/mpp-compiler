@@ -1,7 +1,7 @@
 import { AST, TokenType } from '../types';
 import { GenerateError } from '../error';
 import { generateArithmetic } from './_arithmetic';
-import { Instruction } from '../instruction';
+import { Instruction, STA } from '../instruction';
 import { EnvironmentOption } from './_environment';
 import { Variable } from './_variable';
 
@@ -37,9 +37,7 @@ function _generateAsignation(asignation: Asignation | null, { environment }: Env
   environment.addVariable(variable);
 
   instructions.push(
-    new Instruction('STA', {
-      destignatesVariable: variable, // the designed address for this STA will be the address
-    }),
+    new STA(variable),
   );
 
   return instructions;

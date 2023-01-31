@@ -1,5 +1,6 @@
 import { AST, TokenType } from '../types';
-import { Instruction, Label, PendingDirFromLabel, PendingDirFromVariable } from '../instruction';
+import type { Instruction } from '../instruction';
+import { ADD, BEQ, CMP, JMP, Label, LDA, MOV, Register, SUB } from '../instruction';
 import { parseNumber } from '../number';
 import { GenerateError } from '../error';
 import { EnvironmentOption } from './_environment';
@@ -57,41 +58,31 @@ export function _generateArithmetic(operations: Operation[], { environment }: En
   const instructions: Instruction[] = [];
   for (const operation of operations) {
     if (instructions.length === 0 && operation.value !== undefined) {
-      instructions.push(
-        new Instruction('MOV', {
-          destination: 'AC',
-          value: operation.value,
-        }),
-      );
+      instructions.push(new MOV(operation.value, Register.AC));
       continue;
     } else if (instructions.length === 0 && operation.variableName !== undefined) {
       const fromVariable = environment.getVariable(operation.variableName);
       if (!fromVariable) throw new GenerateError(`Referenced variable '${operation.variableName}' not defined`);
 
-      instructions.push(
-        new Instruction('LDA', {
-          dir: new PendingDirFromVariable(fromVariable),
-        }),
-      );
+      instructions.push(new LDA(fromVariable));
       continue;
     } else if (instructions.length === 0) {
       throw new GenerateError(`Operation ${operation} has no value or variableName`);
     }
 
-    if (operation.value !== undefined && (operation.operator === 'ADD' || operation.operator === 'SUB')) instructions.push(new Instruction(operation.operator, { value: operation.value }));
+    if (operation.value !== undefined && (operation.operator === 'ADD' || operation.operator === 'SUB')) {
+      if (operation.operator === 'ADD') instructions.push(new ADD(operation.value));
+      if (operation.operator === 'SUB') instructions.push(new SUB(operation.value));
+    }
+
     if (operation.variableName !== undefined && (operation.operator === 'ADD' || operation.operator === 'SUB')) {
       const fromVariable = environment.getVariable(operation.variableName);
       if (!fromVariable) throw new GenerateError(`Referenced variable '${operation.variableName}' not defined`);
 
-      instructions.push(
-        new Instruction('MOV', { source: 'AC', destination: 'RC' }),
-        new Instruction('LDA', {
-          dir: new PendingDirFromVariable(fromVariable),
-        }),
-        new Instruction('MOV', { source: 'AC', destination: 'RB' }),
-        new Instruction('MOV', { source: 'RC', destination: 'AC' }),
-        new Instruction(operation.operator, { source: 'RB' }),
-      );
+      instructions.push(new MOV(Register.AC, Register.RC), new LDA(fromVariable), new MOV(Register.AC, Register.RB), new MOV(Register.RC, Register.AC));
+
+      if (operation.operator === 'ADD') instructions.push(new ADD(Register.RB));
+      if (operation.operator === 'SUB') instructions.push(new SUB(Register.RB));
     }
 
     // could be optimized a lot. Could check what of the values is bigger and then do the loop with the smaller value (and add the bigger)
@@ -99,22 +90,19 @@ export function _generateArithmetic(operations: Operation[], { environment }: En
       const multStartLabel = new Label('MULT_START', 'internal');
       const multEndLabel = new Label('MULT_END', 'internal');
       instructions.push(
-        new Instruction('MOV', { source: 'AC', destination: 'RC' }),
-        new Instruction('MOV', { value: 0, destination: 'RD' }),
-        new Instruction('MOV', { source: 'RC', destination: 'AC', labeled: multStartLabel }),
-        new Instruction('CMP', { value: 0 }),
-        new Instruction('BEQ', { dir: new PendingDirFromLabel(multEndLabel) }),
-        // new Instruction('POP'),
-        new Instruction('MOV', { source: 'RD', destination: 'AC' }),
-        new Instruction('ADD', { value: operation.value }),
-        // new Instruction('PUSH'),
-        new Instruction('MOV', { source: 'AC', destination: 'RD' }),
-        new Instruction('MOV', { source: 'RC', destination: 'AC' }),
-        new Instruction('SUB', { value: 1 }),
-        new Instruction('MOV', { source: 'AC', destination: 'RC' }),
-        new Instruction('JMP', { dir: new PendingDirFromLabel(multStartLabel) }),
-        // new Instruction('POP', { labeled: multEndLabel }),
-        new Instruction('MOV', { source: 'RD', destination: 'AC', labeled: multEndLabel }),
+        new MOV(Register.AC, Register.RC),
+        new MOV(0, Register.RD),
+        new MOV(Register.RC, Register.AC, { labeled: multStartLabel }),
+        new CMP(0),
+        new BEQ(multEndLabel),
+        new MOV(Register.RD, Register.AC),
+        new ADD(operation.value),
+        new MOV(Register.AC, Register.RD),
+        new MOV(Register.RC, Register.AC),
+        new SUB(1),
+        new MOV(Register.AC, Register.RC),
+        new JMP(multStartLabel),
+        new MOV(Register.RD, Register.AC, { labeled: multEndLabel }),
       );
     }
 
@@ -122,29 +110,23 @@ export function _generateArithmetic(operations: Operation[], { environment }: En
       const fromVariable = environment.getVariable(operation.variableName);
       if (!fromVariable) throw new GenerateError(`Referenced variable '${operation.variableName}' not defined`);
 
-  
       const multStartLabel = new Label('MULT_START', 'internal');
       const multEndLabel = new Label('MULT_END', 'internal');
       instructions.push(
-        new Instruction('MOV', { source: 'AC', destination: 'RC' }),
-        new Instruction('MOV', { value: 0, destination: 'RD' }),
-        new Instruction('MOV', { source: 'RC', destination: 'AC', labeled: multStartLabel }),
-        new Instruction('CMP', { value: 0 }),
-        new Instruction('BEQ', { dir: new PendingDirFromLabel(multEndLabel) }),
-        // new Instruction('POP'),
-        new Instruction('MOV', { source: 'RD', destination: 'RB' }),
-        new Instruction('LDA', {
-          dir: new PendingDirFromVariable(fromVariable),
-        }),
-        new Instruction('ADD', { source: 'RB' }),
-        // new Instruction('PUSH'),
-        new Instruction('MOV', { source: 'AC', destination: 'RD' }),
-        new Instruction('MOV', { source: 'RC', destination: 'AC' }),
-        new Instruction('SUB', { value: 1 }),
-        new Instruction('MOV', { source: 'AC', destination: 'RC' }),
-        new Instruction('JMP', { dir: new PendingDirFromLabel(multStartLabel) }),
-        // new Instruction('POP', { labeled: multEndLabel }),
-        new Instruction('MOV', { source: 'RD', destination: 'AC', labeled: multEndLabel }),
+        new MOV(Register.AC, Register.RC),
+        new MOV(0, Register.RD),
+        new MOV(Register.RC, Register.AC, { labeled: multStartLabel }),
+        new CMP(0),
+        new BEQ(multEndLabel),
+        new MOV(Register.RD, Register.RB),
+        new LDA(fromVariable),
+        new ADD(Register.RB),
+        new MOV(Register.AC, Register.RD),
+        new MOV(Register.RC, Register.AC),
+        new SUB(1),
+        new MOV(Register.AC, Register.RC),
+        new JMP(multStartLabel),
+        new MOV(Register.RD, Register.AC, { labeled: multEndLabel }),
       );
     }
   }

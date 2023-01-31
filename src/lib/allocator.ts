@@ -1,4 +1,4 @@
-import { Instruction } from './instruction';
+import { FIN, Instruction } from './instruction';
 import { sum } from './utils/math';
 import { AllocationError } from './error';
 
@@ -17,7 +17,7 @@ export function* allocate(stream: Generator<Instruction[]>, { initialOffset = 0,
 
   if (endInstruction) {
     // we want to add a 'FIN' instruction at the end
-    instructions.push(new Instruction('FIN', {}));
+    instructions.push(new FIN());
   }
 
   const occupated = sum(instructions.map((i) => i.getCost()));

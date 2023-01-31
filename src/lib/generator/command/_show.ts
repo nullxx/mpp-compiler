@@ -1,7 +1,7 @@
 import { AST, TokenType } from '../../types';
 import { GenerateError } from '../../error';
 import { SHOW_COMMAND_SYMBOL } from './_comands';
-import { Instruction, PendingDirFromVariable } from '../../instruction';
+import { LDA } from '../../instruction';
 import { EnvironmentOption } from '../_environment';
 
 interface _Show {
@@ -26,9 +26,7 @@ function _generateShow(show: _Show, { environment }: EnvironmentOption) {
   if (!variable) throw new GenerateError(`Referenced variable '${show.variableName}' does not exist`);
 
   return [
-    new Instruction('LDA', {
-      dir: new PendingDirFromVariable(variable),
-    }),
+    new LDA(variable),
   ];
 }
 

@@ -2,7 +2,7 @@ import { AST, TokenType } from '../types';
 import { GenerateError } from '../error';
 import { EnvironmentOption } from './_environment';
 import { generateArithmetic } from './_arithmetic';
-import { Instruction, Label, PendingDirFromLabel } from '../instruction';
+import { BEQ, CMP, Instruction, JMP, Label, MOV, NOP, PendingDirFromLabel, Register } from '../instruction';
 import { generate } from '.';
 import { createGenerator, generatorToSingleArray } from '../utils/function';
 
@@ -17,7 +17,7 @@ interface _Condition {
 }
 
 const CONDITION_KEYWORD = 'if';
-const SUPPORTED_OPERATORS: _Operator[] = ['==', '!='];
+// const SUPPORTED_OPERATORS: _Operator[] = ['==', '!='];
 
 export function isCondition(ast: AST) {
   const [type, value] = ast;
@@ -76,12 +76,12 @@ function _generateConditon(condition: _Condition, { environment }: EnvironmentOp
 
   const generatedLeft = generateArithmetic(condition.leftConditional, { environment });
   instructions.push(...generatedLeft);
-  instructions.push(new Instruction('MOV', { source: 'AC', destination: 'RB' }));
+  instructions.push(new MOV(Register.AC, Register.RB));
 
   const generatedRight = generateArithmetic(condition.rightConditional, { environment });
   instructions.push(...generatedRight);
 
-  instructions.push(new Instruction('CMP', { source: 'RB' }));
+  instructions.push(new CMP(Register.RB));
 
   const lblContinue = new Label('', 'internal');
   const lblCondition = new Label('', 'internal');
@@ -90,10 +90,10 @@ function _generateConditon(condition: _Condition, { environment }: EnvironmentOp
   environment.addLabel(lblContinue);
 
   if (condition.operator === '==') {
-    const beq = new Instruction('BEQ', { dir: new PendingDirFromLabel(lblCondition) });
+    const beq = new BEQ(lblCondition);
     instructions.push(beq);
 
-    const jmp = new Instruction('JMP', { dir: new PendingDirFromLabel(lblContinue) });
+    const jmp = new JMP(lblContinue);
     instructions.push(jmp);
 
     const generatorBody = createGenerator(condition.body);
@@ -103,10 +103,9 @@ function _generateConditon(condition: _Condition, { environment }: EnvironmentOp
     if (generatedBodyArr.length > 0) generatedBodyArr[0].labeled = lblCondition; // inject the label
     instructions.push(...generatedBodyArr);
 
-    instructions.push(new Instruction(null, { isPlaceholder: true, labeled: lblContinue }));
+    instructions.push(new NOP({ isPlaceholder: true, labeled: lblContinue }));
   } else if (condition.operator === '!=') {
-
-    const beq = new Instruction('BEQ', { dir: new PendingDirFromLabel(lblContinue) });
+    const beq = new BEQ(lblContinue);
     instructions.push(beq);
 
     const generatorBody = createGenerator(condition.body);
@@ -116,7 +115,7 @@ function _generateConditon(condition: _Condition, { environment }: EnvironmentOp
     if (generatedBodyArr.length > 0) generatedBodyArr[0].labeled = lblCondition; // not necessary but nice to have
     instructions.push(...generatedBodyArr);
 
-    instructions.push(new Instruction(null, { isPlaceholder: true, labeled: lblContinue }));
+    instructions.push(new NOP({ isPlaceholder: true, labeled: lblContinue }));
   } else {
     throw new GenerateError(`Condition conditional operator '${condition.operator}' not implemented`);
   }
